@@ -18,7 +18,7 @@ function MusicPlayer() {
 
   const audioRef = useRef(null);
   const searchInputRef = useRef(null);
-  const BACKEND_URL = 'http://127.0.0.1:5000';
+  const BACKEND_URL = 'http://100.120.158.80:5000';
 
   // Start the player after fetching library
   const startPlayer = (path) => {
