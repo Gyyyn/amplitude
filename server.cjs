@@ -144,12 +144,12 @@ app.get('/api/library', async (req, res) => {
   }
 });
 
-app.get('/api/stream/:filepath(*)', (req, res) => {
+app.get(/^\/api\/stream\/(.*)/, (req, res) => {
   if (!musicLibraryPath) {
     return res.status(400).send('Music folder not set');
   }
 
-  const filepath = req.params.filepath;
+  const filepath = req.params[0];
   const safePath = path.normalize(filepath).replace(/^(\.\.[/\\])+/, '');
   const absolutePath = path.join(musicLibraryPath, safePath);
 
