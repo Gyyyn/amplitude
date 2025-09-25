@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 
 function MusicPlayer() {
   // State variables
@@ -128,23 +128,55 @@ function MusicPlayer() {
     }
   };
 
-  // Filter tracks based on search query, selected artist, and selected album
-  const filteredLibrary = library.filter(song => {
-    const matchesSearch = song.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          song.artist.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          song.album.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredLibrary = useMemo(() => {
+    const lowerCaseQuery = searchQuery.toLowerCase();
+    return library.filter(song => {
+      const matchesSearch = song.title.toLowerCase().includes(lowerCaseQuery) ||
+                            song.artist.toLowerCase().includes(lowerCaseQuery) ||
+                            song.album.toLowerCase().includes(lowerCaseQuery);
 
-    const matchesArtist = selectedArtist ? song.artist === selectedArtist : true;
-    const matchesAlbum = selectedAlbum ? song.album === selectedAlbum : true;
+      const matchesArtist = selectedArtist ? song.artist === selectedArtist : true;
+      const matchesAlbum = selectedAlbum ? song.album === selectedAlbum : true;
 
-    return matchesSearch && matchesArtist && matchesAlbum;
-  });
+      return matchesSearch && matchesArtist && matchesAlbum;
+    });
+  }, [library, searchQuery, selectedArtist, selectedAlbum]);
 
   // Format time from seconds to MM:SS
   const formatTime = (seconds) => {
     const minutes = Math.floor(seconds / 60);
     const remainingSecs = Math.floor(seconds % 60);
     return `${minutes}:${remainingSecs < 10 ? '0' : ''}${remainingSecs}`;
+  };
+
+  const handleNextTrack = () => {
+    if (!currentTrack || filteredLibrary.length === 0) return;
+
+    const currentIndex = filteredLibrary.findIndex(song => song.filepath === currentTrack.filepath);
+    const nextIndex = (currentIndex + 1) % filteredLibrary.length;
+    
+    setCurrentTrack(filteredLibrary[nextIndex]);
+    setIsPlaying(true);
+    setTimeout(() => audioRef.current?.play().catch(e => console.error("Play error:", e)), 100);
+  };
+
+  const handlePreviousTrack = () => {
+    if (!currentTrack || filteredLibrary.length === 0) return;
+
+    if (audioRef.current && audioRef.current.currentTime > 3) {
+      audioRef.current.currentTime = 0;
+      if (isPlaying) {
+        audioRef.current.play().catch(e => console.error("Play error:", e));
+      }
+      return;
+    }
+
+    const currentIndex = filteredLibrary.findIndex(song => song.filepath === currentTrack.filepath);
+    const prevIndex = (currentIndex - 1 + filteredLibrary.length) % filteredLibrary.length;
+
+    setCurrentTrack(filteredLibrary[prevIndex]);
+    setIsPlaying(true);
+    setTimeout(() => audioRef.current?.play().catch(e => console.error("Play error:", e)), 100);
   };
 
   const handleSetupSubmit = () => {
@@ -402,19 +434,19 @@ function MusicPlayer() {
 
                   {/* Playback Controls */}
                   <div className="flex-1 flex flex-col items-center">
-                    <div className="flex items-center space-x-6 mb-2">
-                      <button title="Previous Track" className="text-gray-300 bg-white bg-opacity-5 hover:bg-opacity-10 hover:text-white transition-colors"><svg className="h-6 w-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"></path></svg></button>
+                    <div class="flex items-center space-x-6 mb-2">
+                      <button onClick={handlePreviousTrack} title="Previous Track" class="text-gray-300 bg-white bg-opacity-5 hover:bg-opacity-10 hover:text-white transition-colors"><svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"></path></svg></button>
                       <button
                         onClick={togglePlayback}
-                        className="bg-green-500 rounded-full p-3 hover:bg-green-600 transition-all transform hover:scale-110 shadow-lg hover:shadow-green-500/50"
+                        class="bg-green-500 rounded-full p-3 hover:bg-green-600 transition-all transform hover:scale-110 shadow-lg hover:shadow-green-500/50"
                       >
                         {isPlaying ? (
-                          <svg className="h-6 w-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M8 19c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2s-2 .9-2 2v10c0 1.1.9 2 2 2zm6-12v10c0 1.1.9 2 2 2s2-.9 2-2V7c0-1.1-.9-2-2-2s-2 .9-2 2z"></path></svg>
+                          <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M8 19c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2s-2 .9-2 2v10c0 1.1.9 2 2 2zm6-12v10c0 1.1.9 2 2 2s2-.9 2-2V7c0-1.1-.9-2-2-2s-2 .9-2 2z"></path></svg>
                         ) : (
-                          <svg className="h-6 w-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg>
+                          <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg>
                         )}
                       </button>
-                      <button title="Next Track" className="text-gray-300 bg-white bg-opacity-5 hover:bg-opacity-10 hover:text-white transition-colors"><svg className="h-6 w-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"></path></svg></button>
+                      <button onClick={handleNextTrack} title="Next Track" class="text-gray-300 bg-white bg-opacity-5 hover:bg-opacity-10 hover:text-white transition-colors"><svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"></path></svg></button>
                     </div>
 
                     {/* Progress Bar */}
@@ -445,7 +477,7 @@ function MusicPlayer() {
           ref={audioRef}
           src={currentTrack ? `${backendUrl}/api/stream/${encodeURIComponent(currentTrack.filepath)}` : ""}
           onTimeUpdate={handleTimeUpdate}
-          onEnded={() => setIsPlaying(false)}
+          onEnded={handleNextTrack}
         />
       </div>
     </div>

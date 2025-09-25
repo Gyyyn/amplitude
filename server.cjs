@@ -26,15 +26,15 @@ app.post('/api/set_music_folder', async (req, res) => {
     if (!stats.isDirectory()) {
       return res.status(400).json({ error: 'Invalid directory path' });
     }
+
+    musicLibraryPath = newPath;
+    albumArtCachePath = path.join(musicLibraryPath, '.amplitude_cache', 'album_art');
+    await fs.mkdir(albumArtCachePath, { recursive: true });
+
+    res.json({ message: `Music folder set to: ${newPath}` });
   } catch (error) {
     return res.status(400).json({ error: 'Invalid directory path' });
   }
-
-  musicLibraryPath = newPath;
-  albumArtCachePath = path.join(musicLibraryPath, '.amplitude_cache', 'album_art');
-  await fs.mkdir(albumArtCachePath, { recursive: true });
-
-  res.json({ message: `Music folder set to: ${newPath}` });
 });
 
 const getAudioMetadata = async (filePath) => {
@@ -93,8 +93,16 @@ const getAudioMetadata = async (filePath) => {
       
       let ext = 'jpg';
       if (albumArtMime) {
-        if (albumArtMime.includes('png')) ext = 'png';
-        else if (albumArtMime.includes('gif')) ext = 'gif';
+        const mime = albumArtMime.toLowerCase();
+        if (mime.includes('png')) {
+          ext = 'png';
+        } else if (mime.includes('gif')) {
+          ext = 'gif';
+        } else if (mime.includes('webp')) {
+          ext = 'webp';
+        } else if (mime.includes('bmp')) {
+          ext = 'bmp';
+        }
       }
 
       const albumArtFilename = `${artistSafe}_${albumSafe}_${uniqueId}.${ext}`;
