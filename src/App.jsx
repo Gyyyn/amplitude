@@ -5,6 +5,7 @@ function MusicPlayer() {
   const [library, setLibrary] = useState([]);
   const [activeView, setActiveView] = useState('setup'); // 'setup' or 'player'
   const [musicFolder, setMusicFolder] = useState(localStorage.getItem('musicFolder') || '');
+  const [backendUrl, setBackendUrl] = useState(localStorage.getItem('backendUrl') || 'http://localhost:5000');
   const [searchQuery, setSearchQuery] = useState('');
   const [currentTrack, setCurrentTrack] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -18,11 +19,10 @@ function MusicPlayer() {
 
   const audioRef = useRef(null);
   const searchInputRef = useRef(null);
-  const BACKEND_URL = 'http://100.120.158.80:5000';
 
   // Start the player after fetching library
-  const startPlayer = (path) => {
-    fetch(`${BACKEND_URL}/api/set_music_folder`, {
+  const startPlayer = (path, url) => {
+    fetch(`${url}/api/set_music_folder`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -30,21 +30,30 @@ function MusicPlayer() {
       body: JSON.stringify({ path }),
     })
     .then(response => {
-      if (!response.ok) throw new Error('Error setting folder');
-      localStorage.setItem('musicFolder', path); // Save the path to localStorage
+      if (!response.ok) throw new Error('Error setting folder. Check backend URL and folder path.');
+      localStorage.setItem('musicFolder', path);
+      localStorage.setItem('backendUrl', url);
       setMusicFolder(path);
-      return fetchLibrary();
+      setBackendUrl(url);
+      return fetchLibrary(url);
     })
     .then(() => setActiveView('player'))
-    .catch(error => console.error('Error:', error));
+    .catch(error => {
+      console.error('Error:', error);
+      alert(error.message); // Provide feedback to the user
+    });
   };
 
   // Effect to load music folder from localStorage on mount
   useEffect(() => {
-    if (musicFolder) {
-      startPlayer(musicFolder);
+    const storedFolder = localStorage.getItem('musicFolder');
+    const storedUrl = localStorage.getItem('backendUrl');
+    if (storedFolder && storedUrl) {
+      setMusicFolder(storedFolder);
+      setBackendUrl(storedUrl);
+      startPlayer(storedFolder, storedUrl);
     }
-  }, [musicFolder]);
+  }, []);
 
   // Effect for keyboard shortcut
   useEffect(() => {
@@ -69,8 +78,8 @@ function MusicPlayer() {
   }, [library]);
 
   // Fetch music library from backend
-  const fetchLibrary = () => {
-    return fetch(`${BACKEND_URL}/api/library`)
+  const fetchLibrary = (url) => {
+    return fetch(`${url}/api/library`)
       .then(response => {
         if (!response.ok) throw new Error('Failed to fetch library');
         return response.json();
@@ -138,6 +147,14 @@ function MusicPlayer() {
     return `${minutes}:${remainingSecs < 10 ? '0' : ''}${remainingSecs}`;
   };
 
+  const handleSetupSubmit = () => {
+    const pathInput = document.getElementById('music-folder-input');
+    const urlInput = document.getElementById('backend-url-input');
+    if (pathInput.value && urlInput.value) {
+      startPlayer(pathInput.value, urlInput.value);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-900 text-white bg-cover bg-center w-[100vw]">
       <div className="min-h-screen bg-black bg-opacity-50 backdrop-blur-3xl">
@@ -150,20 +167,32 @@ function MusicPlayer() {
                 <h1 className="text-4xl font-bold text-green-400">Amplitude</h1>
               </div>
               <p className="text-gray-300 text-center mb-8">
-                Enter the path to your local music library to begin.
+                Enter the path to your music library and the backend server address.
               </p>
               <div className="space-y-4">
                 <input
+                  id="music-folder-input"
                   type="text"
+                  defaultValue={musicFolder}
                   placeholder="e.g., /Users/YourName/Music"
                   className="w-full px-4 py-3 bg-white bg-opacity-5 rounded-lg focus:ring-2 focus:ring-green-400 focus:outline-none border border-white border-opacity-10 transition"
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') startPlayer(e.target.value);
+                    if (e.key === 'Enter') handleSetupSubmit();
+                  }}
+                />
+                <input
+                  id="backend-url-input"
+                  type="text"
+                  defaultValue={backendUrl}
+                  placeholder="e.g., http://192.168.1.10:5000"
+                  className="w-full px-4 py-3 bg-white bg-opacity-5 rounded-lg focus:ring-2 focus:ring-green-400 focus:outline-none border border-white border-opacity-10 transition"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSetupSubmit();
                   }}
                 />
                 <button
                   className="w-full py-3 bg-green-500 hover:bg-green-600 rounded-lg font-semibold transition-all transform hover:scale-105 shadow-lg hover:shadow-green-500/50"
-                  onClick={(e) => startPlayer(e.target.previousElementSibling.value)}
+                  onClick={handleSetupSubmit}
                 >
                   Scan Library
                 </button>
@@ -311,7 +340,7 @@ function MusicPlayer() {
                     >
                       <div className="relative h-20 w-20 aspect-square md:w-auto md:h-auto md:me-0 rounded-lg mb-4 me-4 overflow-hidden">
                         {song.album_art_url ? (
-                            <img src={`${BACKEND_URL}${song.album_art_url}`} alt={`${song.album} album art`} className="w-full h-full object-cover"/>
+                            <img src={`${backendUrl}${song.album_art_url}`} alt={`${song.album} album art`} className="w-full h-full object-cover"/>
                         ) : (
                             <div className="absolute inset-0 bg-gray-700 flex items-center justify-center">
                                 <svg className="h-12 w-12 opacity-30" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
@@ -358,7 +387,7 @@ function MusicPlayer() {
                   <div className="flex items-center w-full md:w-1/4 mb-4 md:mb-0">
                     <div className="h-14 w-14 rounded-lg mr-3 flex-shrink-0 overflow-hidden">
                       {currentTrack.album_art_url ? (
-                          <img src={`${BACKEND_URL}${currentTrack.album_art_url}`} alt={`${currentTrack.album} album art`} className="w-full h-full object-cover"/>
+                          <img src={`${backendUrl}${currentTrack.album_art_url}`} alt={`${currentTrack.album} album art`} className="w-full h-full object-cover"/>
                       ) : (
                           <div className="bg-gray-700 h-full w-full flex items-center justify-center">
                               <svg className="h-8 w-8 opacity-30" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
@@ -414,7 +443,7 @@ function MusicPlayer() {
         {/* Hidden audio player */}
         <audio
           ref={audioRef}
-          src={currentTrack ? `${BACKEND_URL}/api/stream/${encodeURIComponent(currentTrack.filepath)}` : ""}
+          src={currentTrack ? `${backendUrl}/api/stream/${encodeURIComponent(currentTrack.filepath)}` : ""}
           onTimeUpdate={handleTimeUpdate}
           onEnded={() => setIsPlaying(false)}
         />

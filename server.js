@@ -8,7 +8,7 @@ const musicMetadata = require('music-metadata');
 const crypto = require('crypto');
 
 const app = express();
-app.use(cors());
+app.use(cors({ origin: '*' }));
 app.use(express.json());
 
 let musicLibraryPath = null;
@@ -177,6 +177,6 @@ app.get('/api/album_art/:filename', (req, res) => {
 });
 
 const PORT = 5000;
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
