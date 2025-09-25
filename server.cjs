@@ -152,36 +152,80 @@ app.get('/api/library', async (req, res) => {
   }
 });
 
-app.get(/^\/api\/stream\/(.*)/, (req, res) => {
+app.get(/^\/api\/stream\/(.*)/, async (req, res) => {
   if (!musicLibraryPath) {
     return res.status(400).send('Music folder not set');
   }
 
-  const filepath = req.params[0];
-  const safePath = path.normalize(filepath).replace(/^(\.\.[/\\])+/, '');
-  const absolutePath = path.join(musicLibraryPath, safePath);
+  try {
+    const filepath = req.params[0];
+    const safePath = path.normalize(filepath).replace(/^(\.\.[/\\])+/, '');
+    const absolutePath = path.resolve(musicLibraryPath, safePath);
 
-  if (!fsSync.existsSync(absolutePath) || !fsSync.statSync(absolutePath).isFile()) {
+    const data = await fs.readFile(absolutePath);
+
+    const ext = path.extname(absolutePath).toLowerCase();
+    let contentType = 'application/octet-stream';
+    if (ext === '.mp3') {
+      contentType = 'audio/mpeg';
+    } else if (ext === '.flac') {
+      contentType = 'audio/flac';
+    } else if (ext === '.wav') {
+      contentType = 'audio/wav';
+    } else if (ext === '.ogg') {
+      contentType = 'audio/ogg';
+    } else if (ext === '.m4a') {
+      contentType = 'audio/mp4';
+    }
+
+    res.writeHead(200, { 'Content-Type': contentType });
+    res.end(data);
+  } catch (error) {
+    if (error.code === 'ENOENT') {
       return res.status(404).send('File not found');
+    }
+    console.error("Error serving stream:", error);
+    res.status(500).send('Error serving stream');
   }
-  
-  res.sendFile(absolutePath);
 });
 
-app.get('/api/album_art/:filename', (req, res) => {
+app.get('/api/album_art/:filename', async (req, res) => {
   if (!albumArtCachePath) {
     return res.status(400).send('Album art cache not set');
   }
 
-  const filename = req.params.filename;
-  const safeFilename = path.normalize(filename).replace(/^(\.\.[/\\])+/, '');
-  const absolutePath = path.join(albumArtCachePath, safeFilename);
+  try {
+    const filename = req.params.filename;
+    const safeFilename = path.normalize(filename).replace(/^(..[/\\])+/, '');
+    const absolutePath = path.resolve(albumArtCachePath, safeFilename);
 
-  if (!fsSync.existsSync(absolutePath) || !fsSync.statSync(absolutePath).isFile()) {
-    return res.status(404).send('Album art not found');
+    const data = await fs.readFile(absolutePath);
+
+    const ext = path.extname(absolutePath).toLowerCase();
+    let contentType = 'application/octet-stream';
+    if (ext === '.jpg' || ext === '.jpeg') {
+      contentType = 'image/jpeg';
+    } else if (ext === '.png') {
+      contentType = 'image/png';
+    } else if (ext === '.gif') {
+      contentType = 'image/gif';
+    } else if (ext === '.webp') {
+      contentType = 'image/webp';
+    } else if (ext === '.bmp') {
+      contentType = 'image/bmp';
+    }
+    
+    res.writeHead(200, { 'Content-Type': contentType });
+    res.end(data);
+  } catch (error) {
+    // If file doesn't exist, readFile will throw an error
+    if (error.code === 'ENOENT') {
+      return res.status(404).send('Album art not found');
+    }
+    // For other errors, log them and send a generic 500 error
+    console.error("Error serving album art:", error);
+    res.status(500).send('Error serving album art');
   }
-
-  res.sendFile(absolutePath);
 });
 
 const PORT = 5000;

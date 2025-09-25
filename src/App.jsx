@@ -14,11 +14,42 @@ function MusicPlayer() {
   const [selectedArtist, setSelectedArtist] = useState(null);
   const [selectedAlbum, setSelectedAlbum] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [uniqueArtists, setUniqueArtists] = useState([]);
-  const [uniqueAlbums, setUniqueAlbums] = useState([]);
+  const [mainView, setMainView] = useState('tracks'); // 'tracks', 'albums', 'artists'
 
   const audioRef = useRef(null);
   const searchInputRef = useRef(null);
+
+  const albums = useMemo(() => {
+    if (mainView !== 'albums' && selectedAlbum === null) return [];
+    const albumMap = library.reduce((acc, song) => {
+      if (!acc[song.album]) {
+        acc[song.album] = {
+          name: song.album,
+          artist: song.artist,
+          album_art_url: song.album_art_url,
+          tracks: [],
+        };
+      }
+      acc[song.album].tracks.push(song);
+      return acc;
+    }, {});
+    return Object.values(albumMap).sort((a, b) => a.name.localeCompare(b.name));
+  }, [library, mainView, selectedAlbum]);
+
+  const artists = useMemo(() => {
+    if (mainView !== 'artists' && selectedArtist === null) return [];
+    const artistMap = library.reduce((acc, song) => {
+      if (!acc[song.artist]) {
+        acc[song.artist] = {
+          name: song.artist,
+          // Use the art from the first album we find for this artist as a fallback.
+          album_art_url: song.album_art_url,
+        };
+      }
+      return acc;
+    }, {});
+    return Object.values(artistMap).sort((a, b) => a.name.localeCompare(b.name));
+  }, [library, mainView, selectedArtist]);
 
   // Start the player after fetching library
   const startPlayer = (path, url) => {
@@ -68,14 +99,6 @@ function MusicPlayer() {
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
-
-  // Effect to extract unique artists and albums
-  useEffect(() => {
-    const artists = [...new Set(library.map(song => song.artist))].sort();
-    const albums = [...new Set(library.map(song => song.album))].sort();
-    setUniqueArtists(artists);
-    setUniqueAlbums(albums);
-  }, [library]);
 
   // Fetch music library from backend
   const fetchLibrary = (url) => {
@@ -285,127 +308,151 @@ function MusicPlayer() {
                 <div className={`${isSidebarOpen ? 'block' : 'hidden'} overflow-y-auto h-full`}>
                   <div className="space-y-2">
                     <button
-                      onClick={() => { setSelectedArtist(null); setSelectedAlbum(null); }}
+                      onClick={() => { setMainView('tracks'); setSelectedArtist(null); setSelectedAlbum(null); }}
                       className={`flex items-center space-x-3 w-full p-3 rounded-lg transition-colors ${
-                        !selectedArtist && !selectedAlbum
+                        mainView === 'tracks'
                           ? 'bg-green-500 bg-opacity-70 text-white'
                           : 'bg-white bg-opacity-5 hover:bg-opacity-10'
                       }`}
+                      title="All Tracks"
                     >
                       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c-1.105 0-2-.895-2-2s.895-2 2-2 2 .895 2 2-.895 2-2 2zm12-3c-1.105 0-2-.895-2-2s.895-2 2-2 2 .895 2 2-.895 2-2 2z" /></svg>
                       <span>All Tracks</span>
                     </button>
-                  </div>
-
-                  <h2 className="text-xl font-semibold mt-6 mb-4">Artists</h2>
-                  <div className="space-y-2">
                     <button
-                      onClick={() => setSelectedArtist(null)}
+                      onClick={() => { setMainView('artists'); setSelectedArtist(null); setSelectedAlbum(null); }}
                       className={`flex items-center space-x-3 w-full p-3 rounded-lg transition-colors ${
-                        !selectedArtist
+                        mainView === 'artists'
                           ? 'bg-green-500 bg-opacity-70 text-white'
                           : 'bg-white bg-opacity-5 hover:bg-opacity-10'
                       }`}
+                      title="All Artists"
                     >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
                       <span>All Artists</span>
                     </button>
-                    {uniqueArtists.map(artist => (
-                      <button
-                        key={artist}
-                        onClick={() => setSelectedArtist(artist)}
-                        className={`flex items-center space-x-3 w-full p-3 rounded-lg transition-colors ${
-                          selectedArtist === artist
-                            ? 'bg-green-500 bg-opacity-70 text-white'
-                            : 'bg-white bg-opacity-5 hover:bg-opacity-10'
-                        }`}
-                      >
-                        <span>{artist}</span>
-                      </button>
-                    ))}
-                  </div>
-
-                  <h2 className="text-xl font-semibold mt-6 mb-4">Albums</h2>
-                  <div className="space-y-2">
                     <button
-                      onClick={() => setSelectedAlbum(null)}
+                      onClick={() => { setMainView('albums'); setSelectedArtist(null); setSelectedAlbum(null); }}
                       className={`flex items-center space-x-3 w-full p-3 rounded-lg transition-colors ${
-                        !selectedAlbum
+                        mainView === 'albums'
                           ? 'bg-green-500 bg-opacity-70 text-white'
                           : 'bg-white bg-opacity-5 hover:bg-opacity-10'
                       }`}
+                      title="All Albums"
                     >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor"><path d="M22 13v-2h-2v2h2zm-2-4V7h2v2h-2zm-2-4V3h2v2h-2zM12 3v10.55c-.59-.34-1.27-.55-2-.55c-2.21 0-4 1.79-4 4s1.79 4 4 4s4-1.79 4-4V7h4V3h-6zm-2 16c-1.1 0-2-.9-2-2s.9-2 2-2s2 .9 2 2s-.9 2-2 2z"/></svg>
                       <span>All Albums</span>
                     </button>
-                    {uniqueAlbums.map(album => (
-                      <button
-                        key={album}
-                        onClick={() => setSelectedAlbum(album)}
-                        className={`flex items-center space-x-3 w-full p-3 rounded-lg transition-colors ${
-                          selectedAlbum === album
-                            ? 'bg-green-500 bg-opacity-70 text-white'
-                            : 'bg-white bg-opacity-5 hover:bg-opacity-10'
-                        }`}
-                      >
-                        <span>{album}</span>
-                      </button>
-                    ))}
                   </div>
                 </div>
               </div>
 
-              {/* Music Library Grid */}
+              {/* Main Content Area */}
               <div className="flex-1 overflow-y-auto p-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6">
-                  {filteredLibrary.map((song, index) => (
-                    <div
-                      key={index}
-                      className={`flex md:flex-col bg-white bg-opacity-5 backdrop-blur-md p-4 rounded-2xl cursor-pointer transition-all border border-white border-opacity-10 ${
-                        currentTrack?.filepath === song.filepath
-                          ? 'ring-2 ring-green-400 scale-105 shadow-lg shadow-green-500/20'
-                          : 'hover:scale-105 hover:bg-opacity-10'
-                      }`}
-                      onClick={() => {
-                        setCurrentTrack(song);
-                        setIsPlaying(true);
-                        setTimeout(() => audioRef.current?.play(), 100);
-                      }}
-                    >
-                      <div className="relative h-20 w-20 aspect-square md:w-auto md:h-auto md:me-0 rounded-lg mb-4 me-4 overflow-hidden">
-                        {song.album_art_url ? (
-                            <img src={`${backendUrl}${song.album_art_url}`} alt={`${song.album} album art`} className="w-full h-full object-cover"/>
-                        ) : (
-                            <div className="absolute inset-0 bg-gray-700 flex items-center justify-center">
-                                <svg className="h-12 w-12 opacity-30" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                {mainView === 'tracks' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6">
+                    {filteredLibrary.map((song, index) => (
+                      <div
+                        key={index}
+                        className={`flex md:flex-col bg-white bg-opacity-5 backdrop-blur-md p-4 rounded-2xl cursor-pointer transition-all border border-white border-opacity-10 ${
+                          currentTrack?.filepath === song.filepath
+                            ? 'ring-2 ring-green-400 scale-105 shadow-lg shadow-green-500/20'
+                            : 'hover:scale-105 hover:bg-opacity-10'
+                        }`}
+                        onClick={() => {
+                          setCurrentTrack(song);
+                          setIsPlaying(true);
+                          setTimeout(() => audioRef.current?.play(), 100);
+                        }}
+                      >
+                        <div className="relative h-20 w-20 aspect-square md:w-auto md:h-auto md:me-0 rounded-lg mb-4 me-4 overflow-hidden">
+                          {song.album_art_url ? (
+                              <img src={`${backendUrl}${song.album_art_url}`} alt={`${song.album} album art`} className="w-full h-full object-cover"/>
+                          ) : (
+                              <div className="absolute inset-0 bg-gray-700 flex items-center justify-center">
+                                  <svg className="h-12 w-12 opacity-30" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                              </div>
+                          )}
+                          {currentTrack?.filepath === song.filepath && isPlaying && (
+                            <div className="absolute inset-0 bg-gradient-to-br from-green-500 to-teal-500 opacity-70 flex items-center justify-center">
+                              <div className="flex space-x-1">
+                                <div className="h-12 w-2 bg-white animate-pulse"></div>
+                                <div className="h-8 w-2 bg-white animate-pulse animation-delay-200"></div>
+                                <div className="h-10 w-2 bg-white animate-pulse animation-delay-100"></div>
+                                <div className="h-6 w-2 bg-white animate-pulse animation-delay-300"></div>
+                              </div>
                             </div>
-                        )}
-                        {currentTrack?.filepath === song.filepath && isPlaying && (
-                          <div className="absolute inset-0 bg-gradient-to-br from-green-500 to-teal-500 opacity-70 flex items-center justify-center">
-                            <div className="flex space-x-1">
-                              <div className="h-12 w-2 bg-white animate-pulse"></div>
-                              <div className="h-8 w-2 bg-white animate-pulse animation-delay-200"></div>
-                              <div className="h-10 w-2 bg-white animate-pulse animation-delay-100"></div>
-                              <div className="h-6 w-2 bg-white animate-pulse animation-delay-300"></div>
-                            </div>
+                          )}
+                        </div>
+                        <div className='w-full md:w-auto'>
+                          <h3 className="font-semibold truncate">{song.title}</h3>
+                          <p className="text-gray-400 text-sm truncate">{song.artist}</p>
+                          <div className="flex justify-between items-center mt-2">
+                            <span className="text-sm text-gray-500">{song.album}</span>
+                            <span className="text-sm text-gray-500">{formatTime(song.duration)}</span>
                           </div>
-                        )}
-                      </div>
-                      <div className='w-full md:w-auto'>
-                        <h3 className="font-semibold truncate">{song.title}</h3>
-                        <p className="text-gray-400 text-sm truncate">{song.artist}</p>
-                        <div className="flex justify-between items-center mt-2">
-                          <span className="text-sm text-gray-500">{song.album}</span>
-                          <span className="text-sm text-gray-500">{formatTime(song.duration)}</span>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
 
-                {filteredLibrary.length === 0 && (
+                {mainView === 'albums' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6">
+                    {albums.map(album => (
+                      <div
+                        key={album.name}
+                        className="flex md:flex-col bg-white bg-opacity-5 backdrop-blur-md p-4 rounded-2xl cursor-pointer transition-all border border-white border-opacity-10 hover:scale-105 hover:bg-opacity-10"
+                        onClick={() => { setSelectedAlbum(album.name); setMainView('tracks'); }}
+                      >
+                        <div className="relative h-20 w-20 aspect-square md:w-auto md:h-auto md:me-0 rounded-lg mb-4 me-4 overflow-hidden">
+                          {album.album_art_url ? (
+                            <img src={`${backendUrl}${album.album_art_url}`} alt={`${album.name} album art`} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="absolute inset-0 bg-gray-700 flex items-center justify-center">
+                              <svg className="h-12 w-12 opacity-30" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M22 13v-2h-2v2h2zm-2-4V7h2v2h-2zm-2-4V3h2v2h-2zM12 3v10.55c-.59-.34-1.27-.55-2-.55c-2.21 0-4 1.79-4 4s1.79 4 4 4s4-1.79 4-4V7h4V3h-6zm-2 16c-1.1 0-2-.9-2-2s.9-2 2-2s2 .9 2 2s-.9 2-2 2z"/></svg>
+                            </div>
+                          )}
+                        </div>
+                        <div className='w-full md:w-auto'>
+                          <h3 className="font-semibold truncate">{album.name}</h3>
+                          <p className="text-gray-400 text-sm truncate">{album.artist}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {mainView === 'artists' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6">
+                    {artists.map(artist => (
+                      <div
+                        key={artist.name}
+                        className="flex md:flex-col bg-white bg-opacity-5 backdrop-blur-md p-4 rounded-2xl cursor-pointer transition-all border border-white border-opacity-10 hover:scale-105 hover:bg-opacity-10"
+                        onClick={() => { setSelectedArtist(artist.name); setMainView('tracks'); }}
+                      >
+                        <div className="relative h-20 w-20 aspect-square md:w-auto md:h-auto md:me-0 rounded-lg mb-4 me-4 overflow-hidden">
+                          {artist.album_art_url ? (
+                            <img src={`${backendUrl}${artist.album_art_url}`} alt={`${artist.name} album art`} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="absolute inset-0 bg-gray-700 flex items-center justify-center">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 opacity-30" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                            </div>
+                          )}
+                        </div>
+                        <div className='w-full md:w-auto'>
+                          <h3 className="font-semibold truncate">{artist.name}</h3>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {filteredLibrary.length === 0 && mainView === 'tracks' && (
                   <div className="h-full flex flex-col items-center justify-center text-gray-500">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-20 w-20 mb-4 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                    <p className="text-2xl font-light">No Songs Found</p>
-                    <p className="mt-2">Try a different search or check your music folder.</p>
+                    <p className="text-2xl font-light">No Results Found</p>
+                    <p className="mt-2">Try a different search or filter.</p>
                   </div>
                 )}
               </div>
